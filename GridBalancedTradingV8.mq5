@@ -1958,11 +1958,12 @@ void ManageTradingStop()
                Print("Tổng lãi phiên: ", sessionProfit, " USD (ngưỡng: ", TradingStopStepSessionProfit, " USD)");
                Print("Ngưỡng quay lại (lệnh mở): ", TradingStopStepReturnProfitOpen, " USD");
                Print("Ngưỡng quay lại (phiên): ", TradingStopStepReturnProfitSession, " USD");
-               Print("EA sẽ khôi phục lại bình thường");
+               Print("CHƯA ĐẶT SL (chưa đến điểm A + step) → Khôi phục lại trạng thái ban đầu");
+               Print("EA sẽ khôi phục lại bình thường: Khôi phục TP cho TẤT CẢ lệnh và tạo lại lệnh chờ");
                Print("========================================");
                
-               // Khôi phục TP cho các lệnh dương
-               RestoreTPForProfitPositions();
+               // Khôi phục TP cho TẤT CẢ lệnh đang mở (cả dương và âm) theo input
+               RestoreTPForAllPositions();
                
                // Hủy chế độ Trading Stop
                isTradingStopActive = false;
@@ -1972,7 +1973,11 @@ void ManageTradingStop()
                initialPriceForStop = 0.0;
                firstStepDone = false;
                
-               // EA sẽ tự động bổ sung lại lệnh chờ khi ManageGridOrders() chạy
+               // Khôi phục lại lệnh chờ đã xóa (tạo lại theo logic grid)
+               Print("=== KHÔI PHỤC LẠI LỆNH CHỜ ĐÃ XÓA ===");
+               ManageGridOrders();
+               Print("✓ Đã khôi phục lại lệnh chờ - EA tiếp tục chạy như chưa từng kích hoạt Trading Stop");
+               
                return;
             }
          }
@@ -2014,11 +2019,12 @@ void ManageTradingStop()
             Print("Chế độ: ", modeText);
             Print("Tổng lãi ", profitType, " hiện tại: ", currentProfit, " USD");
             Print("Ngưỡng quay lại: ", returnThreshold, " USD");
-            Print("EA sẽ khôi phục lại bình thường");
+            Print("CHƯA ĐẶT SL (chưa đến điểm A + step) → Khôi phục lại trạng thái ban đầu");
+            Print("EA sẽ khôi phục lại bình thường: Khôi phục TP cho TẤT CẢ lệnh và tạo lại lệnh chờ");
             Print("========================================");
             
-            // Khôi phục TP cho các lệnh dương
-            RestoreTPForProfitPositions();
+            // Khôi phục TP cho TẤT CẢ lệnh đang mở (cả dương và âm) theo input
+            RestoreTPForAllPositions();
             
             // Hủy chế độ Trading Stop
             isTradingStopActive = false;
@@ -2028,7 +2034,11 @@ void ManageTradingStop()
             initialPriceForStop = 0.0;
             firstStepDone = false;
             
-            // EA sẽ tự động bổ sung lại lệnh chờ khi ManageGridOrders() chạy
+            // Khôi phục lại lệnh chờ đã xóa (tạo lại theo logic grid)
+            Print("=== KHÔI PHỤC LẠI LỆNH CHỜ ĐÃ XÓA ===");
+            ManageGridOrders();
+            Print("✓ Đã khôi phục lại lệnh chờ - EA tiếp tục chạy như chưa từng kích hoạt Trading Stop");
+            
             return;
          }
       }
@@ -2549,6 +2559,111 @@ void RestoreTPForProfitPositions()
    if(restoredCount > 0)
    {
       Print("Đã khôi phục TP cho ", restoredCount, " lệnh dương");
+   }
+}
+
+//+------------------------------------------------------------------+
+//| Khôi phục TP cho TẤT CẢ lệnh đang mở (cả dương và âm) theo input |
+//+------------------------------------------------------------------+
+void RestoreTPForAllPositions()
+{
+   int restoredCount = 0;
+   double currentPrice = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   
+   for(int i = 0; i < PositionsTotal(); i++)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket > 0)
+      {
+         if(PositionGetInteger(POSITION_MAGIC) == MagicNumber &&
+            PositionGetString(POSITION_SYMBOL) == _Symbol)
+         {
+            double openPrice = PositionGetDouble(POSITION_PRICE_OPEN);
+            ENUM_POSITION_TYPE posType = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
+            double tp = 0;
+            
+            // Xác định loại lệnh và tính TP tương ứng theo input
+            if(posType == POSITION_TYPE_BUY)
+            {
+               // Buy Limit: giá mở < giá hiện tại
+               // Buy Stop: giá mở > giá hiện tại
+               if(openPrice < currentPrice)
+               {
+                  // Buy Limit
+                  if(TakeProfitPipsBuyLimit > 0)
+                  {
+                     tp = NormalizeDouble(openPrice + TakeProfitPipsBuyLimit * pnt * 10.0, dgt);
+                  }
+               }
+               else
+               {
+                  // Buy Stop
+                  if(TakeProfitPipsBuyStop > 0)
+                  {
+                     tp = NormalizeDouble(openPrice + TakeProfitPipsBuyStop * pnt * 10.0, dgt);
+                  }
+               }
+            }
+            else // POSITION_TYPE_SELL
+            {
+               // Sell Limit: giá mở > giá hiện tại
+               // Sell Stop: giá mở < giá hiện tại
+               if(openPrice > currentPrice)
+               {
+                  // Sell Limit
+                  if(TakeProfitPipsSellLimit > 0)
+                  {
+                     tp = NormalizeDouble(openPrice - TakeProfitPipsSellLimit * pnt * 10.0, dgt);
+                  }
+               }
+               else
+               {
+                  // Sell Stop
+                  if(TakeProfitPipsSellStop > 0)
+                  {
+                     tp = NormalizeDouble(openPrice - TakeProfitPipsSellStop * pnt * 10.0, dgt);
+                  }
+               }
+            }
+            
+            // Khôi phục TP (giữ nguyên SL hiện tại nếu có)
+            double currentSL = PositionGetDouble(POSITION_SL);
+            if(tp > 0)
+            {
+               if(trade.PositionModify(ticket, currentSL, tp))
+               {
+                  restoredCount++;
+                  double positionProfit = PositionGetDouble(POSITION_PROFIT);
+                  Print("✓ Đã khôi phục TP (", tp, ") cho ", (posType == POSITION_TYPE_BUY ? "BUY" : "SELL"), " position ", ticket, " (Profit: ", positionProfit, " USD)");
+               }
+               else
+               {
+                  Print("⚠ Lỗi khôi phục TP cho position ", ticket, ": ", GetLastError());
+               }
+            }
+            else
+            {
+               // Nếu TP = 0 trong input, xóa TP nếu đang có
+               double currentTP = PositionGetDouble(POSITION_TP);
+               if(currentTP > 0)
+               {
+                  if(trade.PositionModify(ticket, currentSL, 0))
+                  {
+                     Print("✓ Đã xóa TP cho position ", ticket, " (TP = 0 trong input)");
+                  }
+               }
+            }
+         }
+      }
+   }
+   
+   if(restoredCount > 0)
+   {
+      Print("Đã khôi phục TP cho ", restoredCount, " lệnh đang mở (cả dương và âm) theo input");
+   }
+   else
+   {
+      Print("Không có lệnh nào cần khôi phục TP (TP = 0 trong input hoặc không có lệnh)");
    }
 }
 
