@@ -65,6 +65,10 @@ input bool EnableMartingaleSellStop = false;    // Bật gấp thếp Sell Stop
 input double MartingaleMultiplierSellStop = 2.0; // Hệ số gấp thếp Sell Stop (mức 2=x2, mức 3=x4...)
 input int MartingaleStartLevelSellStop = 1;     // Bắt đầu gấp thếp từ bậc lưới (1=bậc 2, 3=bậc 3...)
 
+//--- Input parameters - Giới hạn gấp thếp
+input group "=== GIỚI HẠN GẤP THẾP ==="
+input int MaxMartingaleLevel = 0;                // Bậc tối đa gấp thếp (0=không giới hạn). Chỉ áp dụng cho loại lệnh đã BẬT gấp thếp; loại không bật vẫn dùng lot cố định
+
 //--- Input parameters - TP tổng
 input group "=== TP TỔNG ==="
 input double TotalProfitTPOpen = 0.0;                          // TP tổng lệnh đang mở (USD, 0=off)
@@ -226,6 +230,8 @@ int OnInit()
          Print("    Gấp thếp: ON | Hệ số: ", MartingaleMultiplierSellStop, "x | ", startLevelInfo, " (bậc ", MartingaleStartLevelSellStop, "=", LotSizeSellStop * MathPow(MartingaleMultiplierSellStop, 1), ", bậc 3=", lotLevel3, ", bậc 4=", lotLevel4, "...)");
       }
    }
+   if(MaxMartingaleLevel > 0)
+      Print("--- Giới hạn gấp thếp: Bậc tối đa ", MaxMartingaleLevel, " (chỉ áp dụng cho loại lệnh đã bật gấp thếp; loại không bật dùng lot cố định)");
    Print("Tổng số levels: ", ArraySize(gridLevels));
    Print("--- TP Tổng ---");
    if(TotalProfitTPOpen > 0)
@@ -1389,13 +1395,13 @@ bool CanPlaceOrderAtLevel(ENUM_ORDER_TYPE orderType, double priceLevel)
 }
 
 //+------------------------------------------------------------------+
-//| Đặt lệnh chờ với TP                                            |
+//| Đặt lệnh chờ với TP theo input (bắt buộc có TP khi đã cài input) |
 //+------------------------------------------------------------------+
 void PlacePendingOrder(ENUM_ORDER_TYPE orderType, double priceLevel, int levelNumber)
 {
    double price = NormalizeDouble(priceLevel, dgt);
    double lotSize = 0;
-   double tp = 0;
+   double tp = 0;  // TP theo input; nếu input > 0 thì lệnh chờ phải có TP
    bool enableMartingale = false;
    double martingaleMultiplier = 1.0;
    int martingaleStartLevel = 1;
@@ -1448,17 +1454,13 @@ void PlacePendingOrder(ENUM_ORDER_TYPE orderType, double priceLevel, int levelNu
    }
    else
    {
-      // Tính toán lot size với gấp thếp mới
-      // Nếu levelNumber < martingaleStartLevel: dùng lot cố định
-      // Nếu levelNumber >= martingaleStartLevel: tính gấp thếp
-      // Ví dụ: martingaleStartLevel = 3
-      //   Bậc 1, 2: lotSize (cố định)
-      //   Bậc 3: lotSize * multiplier^1
-      //   Bậc 4: lotSize * multiplier^2
-      //   Bậc n: lotSize * multiplier^(n - martingaleStartLevel + 1)
-      if(enableMartingale && levelNumber >= martingaleStartLevel && martingaleMultiplier > 0)
+      // Tính toán lot size với gấp thếp; nếu có giới hạn bậc thì các bậc sau không vượt quá lot tại bậc max
+      int effectiveLevel = levelNumber;
+      if(MaxMartingaleLevel > 0 && levelNumber > MaxMartingaleLevel)
+         effectiveLevel = MaxMartingaleLevel;
+      if(enableMartingale && effectiveLevel >= martingaleStartLevel && martingaleMultiplier > 0)
       {
-         int exponent = levelNumber - martingaleStartLevel + 1;
+         int exponent = effectiveLevel - martingaleStartLevel + 1;
          double multiplier = MathPow(martingaleMultiplier, exponent);
          lotSize = NormalizeDouble(lotSize * multiplier, 2);
       }
@@ -1480,9 +1482,14 @@ void PlacePendingOrder(ENUM_ORDER_TYPE orderType, double priceLevel, int levelNu
       string martingaleInfo = "";
       if(enableMartingale && levelNumber >= martingaleStartLevel)
       {
-         int exponent = levelNumber - martingaleStartLevel + 1;
+         int effectiveLevel = (MaxMartingaleLevel > 0 && levelNumber > MaxMartingaleLevel) ? MaxMartingaleLevel : levelNumber;
+         int exponent = effectiveLevel - martingaleStartLevel + 1;
          double multiplierValue = MathPow(martingaleMultiplier, exponent);
-         martingaleInfo = " | Mức " + IntegerToString(levelNumber) + " (x" + DoubleToString(multiplierValue, 2) + ", bắt đầu từ bậc " + IntegerToString(martingaleStartLevel) + ")";
+         martingaleInfo = " | Mức " + IntegerToString(levelNumber);
+         if(MaxMartingaleLevel > 0 && levelNumber > MaxMartingaleLevel)
+            martingaleInfo += " (giới hạn bậc " + IntegerToString(MaxMartingaleLevel) + ", lot=bậc " + IntegerToString(MaxMartingaleLevel) + ")";
+         else
+            martingaleInfo += " (x" + DoubleToString(multiplierValue, 2) + ", bắt đầu từ bậc " + IntegerToString(martingaleStartLevel) + ")";
       }
       Print("✓ Đã đặt lệnh: ", EnumToString(orderType), " tại ", price, " | Lot: ", lotSize, " | TP: ", tp, martingaleInfo);
    }
@@ -1962,7 +1969,7 @@ void ManageTradingStop()
                Print("EA sẽ khôi phục lại bình thường: Khôi phục TP cho TẤT CẢ lệnh và tạo lại lệnh chờ");
                Print("========================================");
                
-               // Khôi phục TP cho TẤT CẢ lệnh đang mở (cả dương và âm) theo input
+               // 1. Khôi phục TP cho TẤT CẢ lệnh đang mở theo input (có TP khi đã cài input)
                RestoreTPForAllPositions();
                
                // Hủy chế độ Trading Stop
@@ -1973,10 +1980,10 @@ void ManageTradingStop()
                initialPriceForStop = 0.0;
                firstStepDone = false;
                
-               // Khôi phục lại lệnh chờ đã xóa (tạo lại theo logic grid)
-               Print("=== KHÔI PHỤC LẠI LỆNH CHỜ ĐÃ XÓA ===");
+               // 2. Khôi phục lệnh chờ đã xóa: tạo lại với TP theo input (có TP khi đã cài input)
+               Print("=== KHÔI PHỤC LẠI LỆNH CHỜ ĐÃ XÓA (TP THEO INPUT) ===");
                ManageGridOrders();
-               Print("✓ Đã khôi phục lại lệnh chờ - EA tiếp tục chạy như chưa từng kích hoạt Trading Stop");
+               Print("✓ Đã khôi phục: lệnh đang mở có TP theo input, lệnh chờ mới có TP theo input - EA tiếp tục chạy");
                
                return;
             }
@@ -2023,7 +2030,7 @@ void ManageTradingStop()
             Print("EA sẽ khôi phục lại bình thường: Khôi phục TP cho TẤT CẢ lệnh và tạo lại lệnh chờ");
             Print("========================================");
             
-            // Khôi phục TP cho TẤT CẢ lệnh đang mở (cả dương và âm) theo input
+            // 1. Khôi phục TP cho TẤT CẢ lệnh đang mở theo input (có TP khi đã cài input)
             RestoreTPForAllPositions();
             
             // Hủy chế độ Trading Stop
@@ -2034,10 +2041,10 @@ void ManageTradingStop()
             initialPriceForStop = 0.0;
             firstStepDone = false;
             
-            // Khôi phục lại lệnh chờ đã xóa (tạo lại theo logic grid)
-            Print("=== KHÔI PHỤC LẠI LỆNH CHỜ ĐÃ XÓA ===");
+            // 2. Khôi phục lệnh chờ đã xóa: tạo lại với TP theo input (có TP khi đã cài input)
+            Print("=== KHÔI PHỤC LẠI LỆNH CHỜ ĐÃ XÓA (TP THEO INPUT) ===");
             ManageGridOrders();
-            Print("✓ Đã khôi phục lại lệnh chờ - EA tiếp tục chạy như chưa từng kích hoạt Trading Stop");
+            Print("✓ Đã khôi phục: lệnh đang mở có TP theo input, lệnh chờ mới có TP theo input - EA tiếp tục chạy");
             
             return;
          }
@@ -2564,6 +2571,9 @@ void RestoreTPForProfitPositions()
 
 //+------------------------------------------------------------------+
 //| Khôi phục TP cho TẤT CẢ lệnh đang mở (cả dương và âm) theo input |
+//| Bắt buộc: mọi lệnh đang mở phải có TP đúng như đã cài ở input (khi input > 0) |
+//| Dùng khi hủy Trading Stop trước khi đặt SL - khôi phục trạng thái trước khi đạt ngưỡng |
+//| SL luôn đặt = 0 để giống trạng thái ban đầu (EA không dùng SL trên position) |
 //+------------------------------------------------------------------+
 void RestoreTPForAllPositions()
 {
@@ -2582,55 +2592,40 @@ void RestoreTPForAllPositions()
             ENUM_POSITION_TYPE posType = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
             double tp = 0;
             
-            // Xác định loại lệnh và tính TP tương ứng theo input
+            // Xác định loại lệnh (Limit vs Stop) theo vị trí giá: Limit thường ở dưới/trên giá khi đặt
+            // Buy Limit: giá đặt < giá thị trường khi kích hoạt → openPrice thường < currentPrice khi đang lãi
+            // Buy Stop: giá đặt > giá thị trường khi kích hoạt → openPrice thường > currentPrice khi mới vào
             if(posType == POSITION_TYPE_BUY)
             {
-               // Buy Limit: giá mở < giá hiện tại
-               // Buy Stop: giá mở > giá hiện tại
                if(openPrice < currentPrice)
                {
-                  // Buy Limit
                   if(TakeProfitPipsBuyLimit > 0)
-                  {
                      tp = NormalizeDouble(openPrice + TakeProfitPipsBuyLimit * pnt * 10.0, dgt);
-                  }
                }
                else
                {
-                  // Buy Stop
                   if(TakeProfitPipsBuyStop > 0)
-                  {
                      tp = NormalizeDouble(openPrice + TakeProfitPipsBuyStop * pnt * 10.0, dgt);
-                  }
                }
             }
             else // POSITION_TYPE_SELL
             {
-               // Sell Limit: giá mở > giá hiện tại
-               // Sell Stop: giá mở < giá hiện tại
                if(openPrice > currentPrice)
                {
-                  // Sell Limit
                   if(TakeProfitPipsSellLimit > 0)
-                  {
                      tp = NormalizeDouble(openPrice - TakeProfitPipsSellLimit * pnt * 10.0, dgt);
-                  }
                }
                else
                {
-                  // Sell Stop
                   if(TakeProfitPipsSellStop > 0)
-                  {
                      tp = NormalizeDouble(openPrice - TakeProfitPipsSellStop * pnt * 10.0, dgt);
-                  }
                }
             }
             
-            // Khôi phục TP (giữ nguyên SL hiện tại nếu có)
-            double currentSL = PositionGetDouble(POSITION_SL);
+            // Khôi phục TP, SL = 0 (trạng thái như trước khi kích hoạt Trading Stop)
             if(tp > 0)
             {
-               if(trade.PositionModify(ticket, currentSL, tp))
+               if(trade.PositionModify(ticket, 0, tp))
                {
                   restoredCount++;
                   double positionProfit = PositionGetDouble(POSITION_PROFIT);
@@ -2643,14 +2638,13 @@ void RestoreTPForAllPositions()
             }
             else
             {
-               // Nếu TP = 0 trong input, xóa TP nếu đang có
+               // TP = 0 trong input: đảm bảo position không có TP (và SL = 0)
                double currentTP = PositionGetDouble(POSITION_TP);
-               if(currentTP > 0)
+               double currentSL = PositionGetDouble(POSITION_SL);
+               if(currentTP > 0 || currentSL != 0)
                {
-                  if(trade.PositionModify(ticket, currentSL, 0))
-                  {
-                     Print("✓ Đã xóa TP cho position ", ticket, " (TP = 0 trong input)");
-                  }
+                  if(trade.PositionModify(ticket, 0, 0))
+                     Print("✓ Đã xóa TP/SL cho position ", ticket, " (TP = 0 trong input)");
                }
             }
          }
