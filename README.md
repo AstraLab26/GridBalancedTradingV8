@@ -18,6 +18,7 @@ EA Grid Trading tự động tạo lưới lệnh xung quanh giá hiện tại k
 - ✅ Bật/tắt độc lập cho từng loại lệnh
 - ✅ Hệ số gấp thếp tùy chỉnh
 - ✅ Bắt đầu gấp thếp từ bậc lưới chỉ định
+- ✅ **Giới hạn bậc gấp thếp**: Bậc tối đa gấp thếp (0 = không giới hạn). Từ bậc này trở đi lot không tăng nữa, bằng lot tại bậc này. Chỉ áp dụng cho loại lệnh đã bật gấp thếp; loại không bật vẫn dùng lot cố định ở mọi bậc.
 - ✅ Lưu lot size khi đạt TP để tái sử dụng
 
 ### 3. Quản lý Rủi ro
@@ -43,8 +44,7 @@ EA Grid Trading tự động tạo lưới lệnh xung quanh giá hiện tại k
 
 **Đặc biệt:** Nếu tổng lãi giảm xuống dưới ngưỡng quay lại TRƯỚC KHI đặt SL, EA sẽ:
 - ✅ Hủy Trading Stop
-- ✅ Khôi phục TP cho TẤT CẢ lệnh đang mở (cả dương và âm) theo input
-- ✅ Tạo lại lệnh chờ với TP theo input
+- ✅ Khôi phục TP cho **TẤT CẢ lệnh đang mở** (cả dương và âm) theo input; lệnh chờ đã xóa được tạo lại **có TP theo input**
 - ✅ Tiếp tục chạy như chưa từng kích hoạt Trading Stop
 
 #### SL % so với tài khoản
@@ -78,6 +78,9 @@ EA Grid Trading tự động tạo lưới lệnh xung quanh giá hiện tại k
 - `EnableMartingale[Loại]`: Bật gấp thếp
 - `MartingaleMultiplier[Loại]`: Hệ số gấp thếp
 - `MartingaleStartLevel[Loại]`: Bắt đầu gấp thếp từ bậc lưới
+
+### Giới hạn gấp thếp
+- `MaxMartingaleLevel`: Bậc tối đa gấp thếp (0 = không giới hạn). Từ bậc này trở đi lot không tăng, bằng lot tại bậc này. **Chỉ áp dụng cho loại lệnh đã bật gấp thếp**; loại không bật gấp thếp luôn dùng lot cố định, không bị ảnh hưởng.
 
 ### TP Tổng
 - `TotalProfitTPOpen`: TP tổng lệnh đang mở (USD, 0=off)
@@ -173,8 +176,9 @@ EA tự động theo dõi:
 1. **Magic Number**: Đảm bảo Magic Number không trùng với EA khác
 2. **Giờ hoạt động**: EA sẽ tự động dừng ngoài giờ nhưng vẫn quản lý lệnh đang mở
 3. **Gồng lãi**: Chỉ dịch SL theo hướng có lợi, không dịch ngược lại
-4. **Khôi phục**: Khi hủy Trading Stop trước khi đặt SL, EA sẽ khôi phục lại TP và lệnh chờ theo input
-5. **Reset**: Khi reset, EA sẽ đóng tất cả lệnh và khởi động lại tại giá mới
+4. **Khôi phục**: Khi hủy Trading Stop trước khi đặt SL, EA khôi phục TP cho mọi lệnh đang mở và tạo lại lệnh chờ, tất cả có TP đúng theo input
+5. **Giới hạn gấp thếp**: Chỉ áp dụng cho loại lệnh đã bật gấp thếp; loại không bật gấp thếp luôn dùng lot cố định
+6. **Reset**: Khi reset, EA sẽ đóng tất cả lệnh và khởi động lại tại giá mới
 
 ## 📝 Version History
 
@@ -183,6 +187,7 @@ EA tự động theo dõi:
 - ✅ Tự động tạo lại lệnh chờ với TP theo input khi hủy Trading Stop
 - ✅ Cải thiện logic chọn hướng trong Trading Stop
 - ✅ Hỗ trợ ngưỡng quay lại để hủy Trading Stop trước khi đặt SL
+- ✅ **Giới hạn gấp thếp**: Thêm input `MaxMartingaleLevel` – bậc tối đa gấp thếp; từ bậc này trở đi lot không tăng. Chỉ áp dụng cho loại lệnh đã bật gấp thếp
 
 ## 📧 Liên hệ
 
