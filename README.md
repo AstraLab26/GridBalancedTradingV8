@@ -35,6 +35,22 @@ Số lượng lưới tối đa và **bậc bắt đầu đặt lệnh** đượ
 
 - **Bắt đầu từ bậc lưới**: Nếu = 1 thì lệnh đó đặt từ bậc 1 trở đi. Nếu = 10 thì chỉ từ bậc 10 trở đi mới có lệnh (bậc 1–9 không đặt lệnh loại đó).
 
+#### Gấp thếp theo bậc lệnh (tương đối)
+
+**Bậc lệnh** = thứ tự lệnh so với giá gốc: lệnh gần giá gốc đầu tiên = **bậc lệnh 1**, tiếp theo = 2, 3, …
+
+- **Số bậc lệnh đầu dùng lot cố định** (MartingaleStartLevel): N bậc lệnh đầu = lot cố định, từ bậc lệnh thứ N+1 trở đi mới gấp thếp (2×, 4×, 8×… theo hệ số).
+
+**Ví dụ: Bắt đầu đặt lệnh từ bậc lưới = 10** (lệnh có tại bậc lưới 10, 11, 12 … → tương ứng bậc lệnh 1, 2, 3 …), hệ số = 2:
+
+| Số bậc đầu lot cố định | Bậc lưới 10 (bậc lệnh 1) | Bậc lưới 11 (bậc lệnh 2) | Bậc lưới 12 (bậc lệnh 3) | Bậc lưới 20 (bậc lệnh 11) |
+|------------------------|---------------------------|---------------------------|---------------------------|----------------------------|
+| **1** | 1× (cố định) | 2× | 4× | 1024× |
+| **10** | 1× (cố định) | 1× | … | 2× (từ bậc lệnh 11 mới gấp) |
+
+- **= 1**: Bậc lệnh 1 (lệnh gần giá gốc nhất) = lot cố định, từ bậc lệnh 2 trở đi gấp thếp.
+- **= 10**: 10 bậc lệnh đầu lot cố định; từ bậc lưới 20 (bậc lệnh 11) trở đi mới gấp thếp.
+
 ### Lệnh Buy Limit
 | Tham số | Mặc định | Mô tả |
 |---------|----------|-------|
@@ -45,33 +61,48 @@ Số lượng lưới tối đa và **bậc bắt đầu đặt lệnh** đượ
 | TakeProfitPipsBuyLimit | 30.0 | TP (pips, 0 = tắt) |
 | EnableMartingaleBuyLimit | false | Bật gấp thếp |
 | MartingaleMultiplierBuyLimit | 2.0 | Hệ số gấp thếp (mức 2 = x2, mức 3 = x4...) |
-| MartingaleStartLevelBuyLimit | 1 | Bắt đầu gấp thếp từ bậc lưới |
+| MartingaleStartLevelBuyLimit | 1 | Số bậc lệnh đầu dùng lot cố định (1 = bậc 1 cố định từ bậc 2 gấp; 10 = 10 bậc đầu cố định từ bậc 11 gấp) |
 
 ### Lệnh Sell Limit
 | Tham số | Mặc định | Mô tả |
 |---------|----------|-------|
 | MaxGridLevelsSellLimit | 10 | Số mức lưới tối đa (chỉ cho Sell Limit) |
 | OrderStartLevelSellLimit | 1 | Bắt đầu đặt lệnh từ bậc lưới (1 = bậc 1 trở đi, 10 = từ bậc 10 trở đi) |
-| ... | ... | Các tham số khác giống nhóm Buy Limit |
+| EnableSellLimit | true | Bật/tắt lệnh Sell Limit |
+| LotSizeSellLimit | 0.01 | Lot (mức 1) |
+| TakeProfitPipsSellLimit | 30.0 | TP (pips, 0 = tắt) |
+| EnableMartingaleSellLimit | false | Bật gấp thếp |
+| MartingaleMultiplierSellLimit | 2.0 | Hệ số gấp thếp |
+| MartingaleStartLevelSellLimit | 1 | Số bậc lệnh đầu dùng lot cố định |
 
 ### Lệnh Buy Stop
 | Tham số | Mặc định | Mô tả |
 |---------|----------|-------|
 | MaxGridLevelsBuyStop | 10 | Số mức lưới tối đa (chỉ cho Buy Stop) |
 | OrderStartLevelBuyStop | 1 | Bắt đầu đặt lệnh từ bậc lưới (1 = bậc 1 trở đi, 10 = từ bậc 10 trở đi) |
-| ... | ... | Các tham số khác tương tự nhóm Buy Limit |
+| EnableBuyStop | true | Bật/tắt lệnh Buy Stop |
+| LotSizeBuyStop | 0.01 | Lot (mức 1) |
+| TakeProfitPipsBuyStop | 30.0 | TP (pips, 0 = tắt) |
+| EnableMartingaleBuyStop | false | Bật gấp thếp |
+| MartingaleMultiplierBuyStop | 2.0 | Hệ số gấp thếp |
+| MartingaleStartLevelBuyStop | 1 | Số bậc lệnh đầu dùng lot cố định |
 
 ### Lệnh Sell Stop
 | Tham số | Mặc định | Mô tả |
 |---------|----------|-------|
 | MaxGridLevelsSellStop | 10 | Số mức lưới tối đa (chỉ cho Sell Stop) |
 | OrderStartLevelSellStop | 1 | Bắt đầu đặt lệnh từ bậc lưới (1 = bậc 1 trở đi, 10 = từ bậc 10 trở đi) |
-| ... | ... | Các tham số khác tương tự nhóm Buy Limit |
+| EnableSellStop | true | Bật/tắt lệnh Sell Stop |
+| LotSizeSellStop | 0.01 | Lot (mức 1) |
+| TakeProfitPipsSellStop | 30.0 | TP (pips, 0 = tắt) |
+| EnableMartingaleSellStop | false | Bật gấp thếp |
+| MartingaleMultiplierSellStop | 2.0 | Hệ số gấp thếp |
+| MartingaleStartLevelSellStop | 1 | Số bậc lệnh đầu dùng lot cố định |
 
 ### Giới hạn gấp thếp
 | Tham số | Mặc định | Mô tả |
 |---------|----------|-------|
-| MaxMartingaleLevel | 0 | Bậc tối đa gấp thếp (0 = không giới hạn) |
+| MaxMartingaleLevel | 0 | Bậc lưới tối đa được gấp thếp (0 = không giới hạn). Tính theo bậc lưới tuyệt đối; chỉ áp dụng cho loại lệnh đã bật gấp thếp. |
 
 ### TP tổng
 | Tham số | Mặc định | Mô tả |
