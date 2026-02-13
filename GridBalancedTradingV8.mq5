@@ -37,7 +37,7 @@ input double LotSizeBuyLimit = 0.01;            // Khối lượng Buy Limit (m�
 input double TakeProfitPipsBuyLimit = 30.0;     // Take Profit Buy Limit (pips, 0=off)
 input bool EnableMartingaleBuyLimit = false;    // Bật gấp thếp Buy Limit
 input double MartingaleMultiplierBuyLimit = 2.0; // Hệ số gấp thếp Buy Limit (mức 2=x2, mức 3=x4...)
-input int MartingaleStartLevelBuyLimit = 1;      // Bắt đầu gấp thếp từ bậc lưới (1=bậc 2, 3=bậc 3...)
+input int MartingaleStartLevelBuyLimit = 1;      // Số bậc lệnh đầu dùng lot cố định (1=bậc1 cố định từ bậc2 gấp; 10=10 bậc đầu cố định từ bậc11 gấp)
 
 //--- Input parameters - Cài đặt lệnh Sell Limit
 input group "=== CÀI ĐẶT LỆNH SELL LIMIT ==="
@@ -48,7 +48,7 @@ input double LotSizeSellLimit = 0.01;           // Khối lượng Sell Limit (m
 input double TakeProfitPipsSellLimit = 30.0;    // Take Profit Sell Limit (pips, 0=off)
 input bool EnableMartingaleSellLimit = false;   // Bật gấp thếp Sell Limit
 input double MartingaleMultiplierSellLimit = 2.0; // Hệ số gấp thếp Sell Limit (mức 2=x2, mức 3=x4...)
-input int MartingaleStartLevelSellLimit = 1;     // Bắt đầu gấp thếp từ bậc lưới (1=bậc 2, 3=bậc 3...)
+input int MartingaleStartLevelSellLimit = 1;     // Số bậc lệnh đầu dùng lot cố định (1=bậc1 cố định từ bậc2 gấp; 10=10 bậc đầu cố định từ bậc11 gấp)
 
 //--- Input parameters - Cài đặt lệnh Buy Stop
 input group "=== CÀI ĐẶT LỆNH BUY STOP ==="
@@ -59,7 +59,7 @@ input double LotSizeBuyStop = 0.01;             // Khối lượng Buy Stop (m�
 input double TakeProfitPipsBuyStop = 30.0;      // Take Profit Buy Stop (pips, 0=off)
 input bool EnableMartingaleBuyStop = false;     // Bật gấp thếp Buy Stop
 input double MartingaleMultiplierBuyStop = 2.0; // Hệ số gấp thếp Buy Stop (mức 2=x2, mức 3=x4...)
-input int MartingaleStartLevelBuyStop = 1;      // Bắt đầu gấp thếp từ bậc lưới (1=bậc 2, 3=bậc 3...)
+input int MartingaleStartLevelBuyStop = 1;      // Số bậc lệnh đầu dùng lot cố định (1=bậc1 cố định từ bậc2 gấp; 10=10 bậc đầu cố định từ bậc11 gấp)
 
 //--- Input parameters - Cài đặt lệnh Sell Stop
 input group "=== CÀI ĐẶT LỆNH SELL STOP ==="
@@ -70,7 +70,7 @@ input double LotSizeSellStop = 0.01;            // Khối lượng Sell Stop (m�
 input double TakeProfitPipsSellStop = 30.0;     // Take Profit Sell Stop (pips, 0=off)
 input bool EnableMartingaleSellStop = false;    // Bật gấp thếp Sell Stop
 input double MartingaleMultiplierSellStop = 2.0; // Hệ số gấp thếp Sell Stop (mức 2=x2, mức 3=x4...)
-input int MartingaleStartLevelSellStop = 1;     // Bắt đầu gấp thếp từ bậc lưới (1=bậc 2, 3=bậc 3...)
+input int MartingaleStartLevelSellStop = 1;     // Số bậc lệnh đầu dùng lot cố định (1=bậc1 cố định từ bậc2 gấp; 10=10 bậc đầu cố định từ bậc11 gấp)
 
 //--- Input parameters - Giới hạn gấp thếp
 input group "=== GIỚI HẠN GẤP THẾP ==="
@@ -1416,14 +1416,16 @@ void PlacePendingOrder(ENUM_ORDER_TYPE orderType, double priceLevel, int levelNu
    bool enableMartingale = false;
    double martingaleMultiplier = 1.0;
    int martingaleStartLevel = 1;
+   int orderStartLevel = 1;  // Bậc lưới bắt đầu đặt lệnh (lệnh gần giá gốc nhất = bậc lệnh 1)
    
-   // Xác định Lot Size và Take Profit dựa trên loại lệnh
+   // Xác định Lot Size, Take Profit và Order Start Level dựa trên loại lệnh
    if(orderType == ORDER_TYPE_BUY_LIMIT)
    {
       lotSize = LotSizeBuyLimit;
       enableMartingale = EnableMartingaleBuyLimit;
       martingaleMultiplier = MartingaleMultiplierBuyLimit;
       martingaleStartLevel = MartingaleStartLevelBuyLimit;
+      orderStartLevel = OrderStartLevelBuyLimit;
       if(TakeProfitPipsBuyLimit > 0)
          tp = NormalizeDouble(price + TakeProfitPipsBuyLimit * pnt * 10.0, dgt);
    }
@@ -1433,6 +1435,7 @@ void PlacePendingOrder(ENUM_ORDER_TYPE orderType, double priceLevel, int levelNu
       enableMartingale = EnableMartingaleSellLimit;
       martingaleMultiplier = MartingaleMultiplierSellLimit;
       martingaleStartLevel = MartingaleStartLevelSellLimit;
+      orderStartLevel = OrderStartLevelSellLimit;
       if(TakeProfitPipsSellLimit > 0)
          tp = NormalizeDouble(price - TakeProfitPipsSellLimit * pnt * 10.0, dgt);
    }
@@ -1442,6 +1445,7 @@ void PlacePendingOrder(ENUM_ORDER_TYPE orderType, double priceLevel, int levelNu
       enableMartingale = EnableMartingaleBuyStop;
       martingaleMultiplier = MartingaleMultiplierBuyStop;
       martingaleStartLevel = MartingaleStartLevelBuyStop;
+      orderStartLevel = OrderStartLevelBuyStop;
       if(TakeProfitPipsBuyStop > 0)
          tp = NormalizeDouble(price + TakeProfitPipsBuyStop * pnt * 10.0, dgt);
    }
@@ -1451,9 +1455,13 @@ void PlacePendingOrder(ENUM_ORDER_TYPE orderType, double priceLevel, int levelNu
       enableMartingale = EnableMartingaleSellStop;
       martingaleMultiplier = MartingaleMultiplierSellStop;
       martingaleStartLevel = MartingaleStartLevelSellStop;
+      orderStartLevel = OrderStartLevelSellStop;
       if(TakeProfitPipsSellStop > 0)
          tp = NormalizeDouble(price - TakeProfitPipsSellStop * pnt * 10.0, dgt);
    }
+   
+   // Bậc lệnh tương đối: lệnh gần giá gốc nhất = 1, tiếp theo = 2, ...
+   int orderLevelRelative = levelNumber - orderStartLevel + 1;
    
    // Kiểm tra xem có lot size đã lưu cho mức lưới này không (từ lệnh TP trước đó)
    double savedLotSize = GetSavedLotSize(orderType, levelNumber);
@@ -1465,15 +1473,18 @@ void PlacePendingOrder(ENUM_ORDER_TYPE orderType, double priceLevel, int levelNu
    }
    else
    {
-      // Tính toán lot size với gấp thếp; nếu có giới hạn bậc thì các bậc sau không vượt quá lot tại bậc max
-      int effectiveLevel = levelNumber;
+      // Gấp thếp tính theo bậc lệnh (1 = lệnh gần giá gốc đầu tiên). Bậc <= MartingaleStartLevel = lot cố định; từ bậc tiếp theo mới gấp thếp.
+      int effectiveRelative = orderLevelRelative;
       if(MaxMartingaleLevel > 0 && levelNumber > MaxMartingaleLevel)
-         effectiveLevel = MaxMartingaleLevel;
-      if(enableMartingale && effectiveLevel >= martingaleStartLevel && martingaleMultiplier > 0)
+         effectiveRelative = MaxMartingaleLevel - orderStartLevel + 1;
+      if(enableMartingale && orderLevelRelative > martingaleStartLevel && martingaleMultiplier > 0)
       {
-         int exponent = effectiveLevel - martingaleStartLevel + 1;
-         double multiplier = MathPow(martingaleMultiplier, exponent);
-         lotSize = NormalizeDouble(lotSize * multiplier, 2);
+         int exponent = effectiveRelative - martingaleStartLevel;
+         if(exponent > 0)
+         {
+            double multiplier = MathPow(martingaleMultiplier, exponent);
+            lotSize = NormalizeDouble(lotSize * multiplier, 2);
+         }
       }
    }
    
@@ -1491,16 +1502,16 @@ void PlacePendingOrder(ENUM_ORDER_TYPE orderType, double priceLevel, int levelNu
    if(result)
    {
       string martingaleInfo = "";
-      if(enableMartingale && levelNumber >= martingaleStartLevel)
+      if(enableMartingale && orderLevelRelative > martingaleStartLevel)
       {
-         int effectiveLevel = (MaxMartingaleLevel > 0 && levelNumber > MaxMartingaleLevel) ? MaxMartingaleLevel : levelNumber;
-         int exponent = effectiveLevel - martingaleStartLevel + 1;
-         double multiplierValue = MathPow(martingaleMultiplier, exponent);
-         martingaleInfo = " | Mức " + IntegerToString(levelNumber);
+         int effectiveRelative = (MaxMartingaleLevel > 0 && levelNumber > MaxMartingaleLevel) ? (MaxMartingaleLevel - orderStartLevel + 1) : orderLevelRelative;
+         int exponent = effectiveRelative - martingaleStartLevel;
+         double multiplierValue = (exponent > 0) ? MathPow(martingaleMultiplier, exponent) : 1.0;
+         martingaleInfo = " | Lưới " + IntegerToString(levelNumber) + " (bậc lệnh " + IntegerToString(orderLevelRelative) + ")";
          if(MaxMartingaleLevel > 0 && levelNumber > MaxMartingaleLevel)
             martingaleInfo += " (giới hạn bậc " + IntegerToString(MaxMartingaleLevel) + ", lot=bậc " + IntegerToString(MaxMartingaleLevel) + ")";
          else
-            martingaleInfo += " (x" + DoubleToString(multiplierValue, 2) + ", bắt đầu từ bậc " + IntegerToString(martingaleStartLevel) + ")";
+            martingaleInfo += " (x" + DoubleToString(multiplierValue, 2) + ", gấp thếp từ bậc lệnh " + IntegerToString(martingaleStartLevel + 1) + ")";
       }
       Print("✓ Đã đặt lệnh: ", EnumToString(orderType), " tại ", price, " | Lot: ", lotSize, " | TP: ", tp, martingaleInfo);
    }
