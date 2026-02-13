@@ -26,11 +26,12 @@ enum ENUM_TRADING_STOP_MODE
 //--- Input parameters - Cài đặt lưới
 input group "=== CÀI ĐẶT LƯỚI ==="
 input double GridDistancePips = 20.0;           // Khoảng cách lưới (pips)
-input int MaxGridLevels = 10;                   // Số lượng lưới tối đa
 input bool AutoRefillOrders = true;             // Tự động bổ sung lệnh khi đóng
 
 //--- Input parameters - Cài đặt lệnh Buy Limit
 input group "=== CÀI ĐẶT LỆNH BUY LIMIT ==="
+input int MaxGridLevelsBuyLimit = 10;            // Số lượng lưới tối đa (Buy Limit)
+input int OrderStartLevelBuyLimit = 1;          // Bắt đầu đặt lệnh từ bậc lưới (1=bậc 1 trở đi, 10=từ bậc 10 trở đi)
 input bool EnableBuyLimit = true;               // Cho phép lệnh Buy Limit
 input double LotSizeBuyLimit = 0.01;            // Khối lượng Buy Limit (mức 1)
 input double TakeProfitPipsBuyLimit = 30.0;     // Take Profit Buy Limit (pips, 0=off)
@@ -40,6 +41,8 @@ input int MartingaleStartLevelBuyLimit = 1;      // Bắt đầu gấp thếp t�
 
 //--- Input parameters - Cài đặt lệnh Sell Limit
 input group "=== CÀI ĐẶT LỆNH SELL LIMIT ==="
+input int MaxGridLevelsSellLimit = 10;           // Số lượng lưới tối đa (Sell Limit)
+input int OrderStartLevelSellLimit = 1;         // Bắt đầu đặt lệnh từ bậc lưới (1=bậc 1 trở đi, 10=từ bậc 10 trở đi)
 input bool EnableSellLimit = true;              // Cho phép lệnh Sell Limit
 input double LotSizeSellLimit = 0.01;           // Khối lượng Sell Limit (mức 1)
 input double TakeProfitPipsSellLimit = 30.0;    // Take Profit Sell Limit (pips, 0=off)
@@ -49,6 +52,8 @@ input int MartingaleStartLevelSellLimit = 1;     // Bắt đầu gấp thếp t�
 
 //--- Input parameters - Cài đặt lệnh Buy Stop
 input group "=== CÀI ĐẶT LỆNH BUY STOP ==="
+input int MaxGridLevelsBuyStop = 10;             // Số lượng lưới tối đa (Buy Stop)
+input int OrderStartLevelBuyStop = 1;           // Bắt đầu đặt lệnh từ bậc lưới (1=bậc 1 trở đi, 10=từ bậc 10 trở đi)
 input bool EnableBuyStop = true;                // Cho phép lệnh Buy Stop
 input double LotSizeBuyStop = 0.01;             // Khối lượng Buy Stop (mức 1)
 input double TakeProfitPipsBuyStop = 30.0;      // Take Profit Buy Stop (pips, 0=off)
@@ -58,6 +63,8 @@ input int MartingaleStartLevelBuyStop = 1;      // Bắt đầu gấp thếp t�
 
 //--- Input parameters - Cài đặt lệnh Sell Stop
 input group "=== CÀI ĐẶT LỆNH SELL STOP ==="
+input int MaxGridLevelsSellStop = 10;            // Số lượng lưới tối đa (Sell Stop)
+input int OrderStartLevelSellStop = 1;          // Bắt đầu đặt lệnh từ bậc lưới (1=bậc 1 trở đi, 10=từ bậc 10 trở đi)
 input bool EnableSellStop = true;               // Cho phép lệnh Sell Stop
 input double LotSizeSellStop = 0.01;            // Khối lượng Sell Stop (mức 1)
 input double TakeProfitPipsSellStop = 30.0;     // Take Profit Sell Stop (pips, 0=off)
@@ -180,7 +187,8 @@ int OnInit()
    Print("Symbol: ", _Symbol);
    Print("Base Price: ", basePrice);
    Print("Grid Distance: ", GridDistancePips, " pips");
-   Print("Max Levels: ", MaxGridLevels);
+   Print("Max Levels (từng loại): BuyLimit=", MaxGridLevelsBuyLimit, " | SellLimit=", MaxGridLevelsSellLimit, " | BuyStop=", MaxGridLevelsBuyStop, " | SellStop=", MaxGridLevelsSellStop);
+   Print("Bắt đầu đặt lệnh từ bậc: BuyLimit=", OrderStartLevelBuyLimit, " | SellLimit=", OrderStartLevelSellLimit, " | BuyStop=", OrderStartLevelBuyStop, " | SellStop=", OrderStartLevelSellStop);
    Print("Auto Refill: ", AutoRefillOrders ? "ON" : "OFF");
    Print("--- Loại lệnh được bật ---");
    Print("Buy Limit: ", EnableBuyLimit ? "ON" : "OFF", " | Sell Limit: ", EnableSellLimit ? "ON" : "OFF");
@@ -1102,18 +1110,21 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
 void InitializeGridLevels()
 {
    double gridDistance = GridDistancePips * pnt * 10.0;
-   int totalLevels = MaxGridLevels * 2 + 1; // Cả 2 phía + giá cơ sở
+   // Số level vật lý = max của 4 loại lệnh (để đủ level cho mọi loại)
+   int maxLevel = MathMax(MathMax(MaxGridLevelsBuyLimit, MaxGridLevelsSellLimit),
+                          MathMax(MaxGridLevelsBuyStop, MaxGridLevelsSellStop));
+   int totalLevels = maxLevel * 2 + 1; // Cả 2 phía + giá cơ sở
    
    ArrayResize(gridLevels, totalLevels);
    ArrayResize(gridLevelIndex, totalLevels);
    
    int index = 0;
    
-   // Level phía trên giá cơ sở (mức 1 là gần nhất, MaxGridLevels là xa nhất)
-   for(int i = 1; i <= MaxGridLevels; i++)
+   // Level phía trên giá cơ sở (mức 1 là gần nhất, maxLevel là xa nhất)
+   for(int i = 1; i <= maxLevel; i++)
    {
       gridLevels[index] = NormalizeDouble(basePrice + (i * gridDistance), dgt);
-      gridLevelIndex[index] = i; // Mức lưới: 1, 2, 3... MaxGridLevels
+      gridLevelIndex[index] = i;
       index++;
    }
    
@@ -1122,15 +1133,15 @@ void InitializeGridLevels()
    gridLevelIndex[index] = 0;
    index++;
    
-   // Level phía dưới giá cơ sở (mức 1 là gần nhất, MaxGridLevels là xa nhất)
-   for(int i = 1; i <= MaxGridLevels; i++)
+   // Level phía dưới giá cơ sở (mức 1 là gần nhất, maxLevel là xa nhất)
+   for(int i = 1; i <= maxLevel; i++)
    {
       gridLevels[index] = NormalizeDouble(basePrice - (i * gridDistance), dgt);
-      gridLevelIndex[index] = i; // Mức lưới: 1, 2, 3... MaxGridLevels
+      gridLevelIndex[index] = i;
       index++;
    }
    
-   Print("Đã khởi tạo ", totalLevels, " grid levels");
+   Print("Đã khởi tạo ", totalLevels, " grid levels (max level = ", maxLevel, ": BuyLimit=", MaxGridLevelsBuyLimit, ", SellLimit=", MaxGridLevelsSellLimit, ", BuyStop=", MaxGridLevelsBuyStop, ", SellStop=", MaxGridLevelsSellStop, ")");
 }
 
 //+------------------------------------------------------------------+
@@ -1169,18 +1180,18 @@ void ManageGridOrders()
       
       if(level > currentPrice)
       {
-         // Level phía trên giá hiện tại - chỉ đặt Buy Stop và/hoặc Sell Limit nếu được bật
-         if(EnableBuyStop)
+         // Level phía trên giá hiện tại - chỉ đặt Buy Stop và/hoặc Sell Limit nếu được bật, từ bậc bắt đầu và trong giới hạn lưới
+         if(EnableBuyStop && levelNumber >= OrderStartLevelBuyStop && levelNumber <= MaxGridLevelsBuyStop)
             EnsureOrderAtLevel(ORDER_TYPE_BUY_STOP, level, levelNumber);
-         if(EnableSellLimit)
+         if(EnableSellLimit && levelNumber >= OrderStartLevelSellLimit && levelNumber <= MaxGridLevelsSellLimit)
             EnsureOrderAtLevel(ORDER_TYPE_SELL_LIMIT, level, levelNumber);
       }
       else if(level < currentPrice)
       {
-         // Level phía dưới giá hiện tại - chỉ đặt Buy Limit và/hoặc Sell Stop nếu được bật
-         if(EnableBuyLimit)
+         // Level phía dưới giá hiện tại - chỉ đặt Buy Limit và/hoặc Sell Stop nếu được bật, từ bậc bắt đầu và trong giới hạn lưới
+         if(EnableBuyLimit && levelNumber >= OrderStartLevelBuyLimit && levelNumber <= MaxGridLevelsBuyLimit)
             EnsureOrderAtLevel(ORDER_TYPE_BUY_LIMIT, level, levelNumber);
-         if(EnableSellStop)
+         if(EnableSellStop && levelNumber >= OrderStartLevelSellStop && levelNumber <= MaxGridLevelsSellStop)
             EnsureOrderAtLevel(ORDER_TYPE_SELL_STOP, level, levelNumber);
       }
    }
